@@ -1,6 +1,6 @@
 import { Box, Flex, VStack, Icon, IconButton, useColorMode, Text, Image, Button } from '@chakra-ui/react';
 import { MoonIcon, SunIcon } from '@chakra-ui/icons';
-import { FiHome, FiClock, FiBell, FiFolder, FiGrid, FiHelpCircle } from 'react-icons/fi';
+import { FiHome, FiBarChart2, FiFolder, FiGrid, FiHelpCircle, FiBriefcase } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/router';
 
@@ -22,10 +22,10 @@ const SidebarItem = ({ icon, label, isActive = false, onClick }: SidebarItemProp
     <Flex
       align="center"
       p={3}
-      cursor="pointer"
+      cursor={onClick ? "pointer" : "default"}
       color={
         colorMode === 'light'
-          ? isActive ? 'blue.500' : 'gray.500'
+          ? isActive ? 'blue.500' : 'gray.600'
           : isActive ? 'blue.200' : 'gray.400'
       }
       _hover={{
@@ -40,9 +40,10 @@ const SidebarItem = ({ icon, label, isActive = false, onClick }: SidebarItemProp
       }
       mb={1}
       onClick={onClick}
+      opacity={onClick ? 1 : 0.7}
     >
       <Icon as={icon} mr={3} />
-      <Text fontSize="sm" fontWeight="medium">{label}</Text>
+      <Text fontSize="sm" fontWeight={isActive ? "semibold" : "medium"}>{label}</Text>
     </Flex>
   );
 };
@@ -91,10 +92,24 @@ export default function Layout({ children }: LayoutProps) {
             isActive={router.pathname === '/'} 
             onClick={() => router.push('/')}
           />
-          <SidebarItem icon={FiClock} label="Recent" />
-          <SidebarItem icon={FiBell} label="Notifications" />
-          <SidebarItem icon={FiFolder} label="Files" />
-          <SidebarItem icon={FiGrid} label="Applications" />
+          <SidebarItem 
+            icon={FiBarChart2} 
+            label="Evaluate" 
+            isActive={router.pathname === '/evaluate'} 
+            onClick={() => router.push('/evaluate')}
+          />
+          <SidebarItem 
+            icon={FiFolder} 
+            label="History" 
+            isActive={router.pathname === '/history'} 
+            onClick={() => router.push('/history')}
+          />
+          <SidebarItem 
+            icon={FiBriefcase} 
+            label="Company Profile" 
+            isActive={router.pathname === '/company-profile'} 
+            onClick={() => router.push('/company-profile')}
+          />
         </VStack>
       </Box>
 

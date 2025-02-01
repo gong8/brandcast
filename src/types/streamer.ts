@@ -1,0 +1,38 @@
+export interface Social {
+  link: string;
+  website: string;
+}
+
+export interface TwitchStreamer {
+  name: string;
+  followers: number;
+  views: number;
+  description: string;
+  socials: Social[];
+  panelElements: string[];
+  panelImageURLs: string[];
+  panelLinkUrls: string[];
+  address?: string;
+  countryCode?: string;
+}
+
+export interface Sponsor {
+  name: string;
+  logo: string;
+}
+
+export interface Streamer {
+  id: string;
+  name: string;
+  image: string;
+  description: string;
+  tags: string[];
+  categories: string[];
+  sponsors: Sponsor[];
+  aiSummary: string;
+  aiScore: number;
+  aiRecommendation: string;
+  followers?: number;
+  views?: number;
+  socials?: Social[];
+} 
