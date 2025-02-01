@@ -20,10 +20,17 @@ export default function History() {
         );
         
         const querySnapshot = await getDocs(q);
-        const streamerData = querySnapshot.docs.map(doc => ({
-          ...doc.data() as Streamer,
-          id: doc.id
-        }));
+        const streamerData = querySnapshot.docs
+          .filter(doc => !doc.data()._isPlaceholder)
+          .map(doc => {
+            const data = doc.data();
+            return {
+              ...data,
+              id: doc.id,
+              relevanceScore: data.relevanceScore,
+              aiScore: data.aiScore
+            } as Streamer;
+          });
         
         setStreamers(streamerData);
       } catch (error) {
@@ -42,7 +49,7 @@ export default function History() {
         <Box>
           <Heading size="lg" mb={2}>Analysis History</Heading>
           <Text color={colorMode === 'light' ? 'gray.600' : 'gray.300'}>
-            Previously analyzed Twitch streamers
+            Previously analysed Twitch streamers
           </Text>
         </Box>
 
@@ -58,13 +65,18 @@ export default function History() {
         ) : streamers.length > 0 ? (
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
             {streamers.map((streamer) => (
-              <StreamerCard key={streamer.id} streamer={streamer} />
+              <StreamerCard 
+                key={streamer.id} 
+                streamer={streamer} 
+                relevanceScore={streamer.relevanceScore}
+                isRecomputing={false} 
+              />
             ))}
           </SimpleGrid>
         ) : (
           <Center py={12}>
             <Text color={colorMode === 'light' ? 'gray.600' : 'gray.400'}>
-              No analyzed streamers yet. Try evaluating some streamers first!
+              No analysed streamers yet. Try evaluating some streamers first!
             </Text>
           </Center>
         )}

@@ -56,7 +56,7 @@ export default function Layout({ children }: LayoutProps) {
   const logoSrc = colorMode === 'light' ? '/images/logo.png' : '/images/logo-dark.png';
 
   return (
-    <Flex h="100vh">
+    <Flex minH="100vh" h="100%">
       {/* Sidebar */}
       <Box
         w="240px"
@@ -117,6 +117,8 @@ export default function Layout({ children }: LayoutProps) {
       <Box 
         flex={1} 
         bg={colorMode === 'light' ? 'gray.50' : 'gray.900'} 
+        minH="100vh"
+        h="100%"
         position="relative"
         ml="240px" // Add margin to offset the fixed sidebar
       >
@@ -196,7 +198,14 @@ export default function Layout({ children }: LayoutProps) {
         </Box>
         
         {/* Content */}
-        <Box p={8} maxW="1200px" mx="auto" position="relative" minH="100%">
+        <Box 
+          p={8} 
+          maxW="1200px" 
+          mx="auto" 
+          position="relative" 
+          minH="calc(100vh - 64px)"
+          h="100%"
+        >
           {children}
 
           {/* Support Button */}
@@ -229,10 +238,5 @@ export default function Layout({ children }: LayoutProps) {
 
 // Helper function to get page title based on route
 function getPageTitle(pathname: string): string {
-  switch (pathname) {
-    case '/':
-      return 'Dashboard';
-    default:
-      return ''; // Return empty string for all other pages
-  }
+  return ''; // Return empty string for all pages
 } 

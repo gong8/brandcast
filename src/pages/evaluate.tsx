@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, VStack, Heading, Text, Input, Button, useToast, Card, useColorMode, Flex, keyframes, Spinner } from '@chakra-ui/react';
 import Layout from '@/components/Layout';
 import StreamerCard from '@/components/StreamerCard';
 import { TwitchStreamer, Streamer } from '@/types/streamer';
-import { collection, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { CompanyProfile } from '@/types/company';
+import { collection, doc, getDoc, setDoc, serverTimestamp, writeBatch, getDocs, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { calculateRelevanceScore, calculateAIScore } from '@/utils/scoring';
+import { calculateAISummaryAndRecommendation } from '@/utils/recommendations';
 
 const pulseKeyframe = keyframes`
   0% { transform: scale(0.95); }
@@ -78,8 +81,25 @@ export default function Evaluate() {
   const [twitchUrl, setTwitchUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [evaluation, setEvaluation] = useState<Streamer | null>(null);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
   const toast = useToast();
   const { colorMode } = useColorMode();
+
+  useEffect(() => {
+    async function fetchCompanyProfile() {
+      try {
+        const companyDoc = await getDoc(doc(db, 'companyProfile', 'main'));
+        if (companyDoc.exists()) {
+          const profile = companyDoc.data() as CompanyProfile;
+          setCompanyProfile(profile);
+        }
+      } catch (error) {
+        console.error('Error fetching company profile:', error);
+      }
+    }
+
+    fetchCompanyProfile();
+  }, []);
 
   const extractTwitchUsername = (input: string): string | null => {
     // Remove whitespace
@@ -128,7 +148,7 @@ export default function Evaluate() {
 
   const checkCache = async (username: string): Promise<Streamer | null> => {
     try {
-      const docRef = doc(db, 'analyzedStreamers', username.toLowerCase());
+      const docRef = doc(db, 'analysedStreamers', username.toLowerCase());
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
@@ -139,18 +159,6 @@ export default function Evaluate() {
     } catch (error) {
       console.error('Cache check error:', error);
       return null;
-    }
-  };
-
-  const saveToCache = async (username: string, data: Streamer) => {
-    try {
-      const docRef = doc(db, 'analyzedStreamers', username.toLowerCase());
-      await setDoc(docRef, {
-        ...data,
-        analyzedAt: serverTimestamp()
-      });
-    } catch (error) {
-      console.error('Cache save error:', error);
     }
   };
 
@@ -173,10 +181,11 @@ export default function Evaluate() {
       // Check cache first
       const cachedData = await checkCache(username);
       if (cachedData) {
-        setEvaluation(cachedData);
+        const relevanceScore = calculateRelevanceScore(cachedData, companyProfile);
+        setEvaluation({ ...cachedData, relevanceScore });
         toast({
           title: 'Cached Result',
-          description: 'Showing previously analyzed data',
+          description: 'Showing previously analysed data',
           status: 'info',
           duration: 3000,
           isClosable: true,
@@ -191,13 +200,56 @@ export default function Evaluate() {
       }
       
       const twitchData: TwitchStreamer = await twitchResponse.json();
-      const evaluation = await processWithClaude(twitchData);
+      const processedData = await processWithClaude(twitchData);
       
-      // Save to cache
-      await saveToCache(username, evaluation);
+      // Calculate all scores and analyses
+      const relevanceScore = calculateRelevanceScore(processedData, companyProfile);
+      const aiScore = calculateAIScore(processedData);
+      const { aiSummary, aiRecommendation } = calculateAISummaryAndRecommendation(processedData, companyProfile);
+
+      const evaluationWithScores = {
+        ...processedData,
+        relevanceScore,
+        aiScore,
+        aiSummary,
+        aiRecommendation
+      };
       
-      setEvaluation(evaluation);
+      // Save to Firestore with a batch write
+      const batch = writeBatch(db);
+      
+      // Save complete streamer data
+      const streamerRef = doc(db, 'analysedStreamers', username.toLowerCase());
+      batch.set(streamerRef, {
+        ...evaluationWithScores,
+        analysedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        id: username.toLowerCase()
+      });
+
+      // Save brand fit score
+      const scoreRef = doc(db, 'streamerScores', `${username.toLowerCase()}_main`);
+      batch.set(scoreRef, {
+        streamerId: username.toLowerCase(),
+        companyId: 'main',
+        relevanceScore,
+        calculatedAt: Date.now()
+      });
+
+      // Commit both operations
+      await batch.commit();
+      
+      setEvaluation(evaluationWithScores);
+      
+      toast({
+        title: 'Success',
+        description: 'Streamer analysed and all scores calculated successfully',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
     } catch (error) {
+      console.error('Evaluation error:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to evaluate streamer',
@@ -216,7 +268,7 @@ export default function Evaluate() {
         <Box>
           <Heading size="lg" mb={2}>Evaluate Streamer</Heading>
           <Text color={colorMode === 'light' ? 'gray.600' : 'gray.300'}>
-            Enter a Twitch URL to analyze the streamer's potential
+            Enter a Twitch URL to analyse the streamer's potential
           </Text>
         </Box>
 
@@ -266,7 +318,12 @@ export default function Evaluate() {
         ) : evaluation && (
           <Box>
             <Heading size="md" mb={4}>Evaluation Result</Heading>
-            <StreamerCard streamer={evaluation} />
+            <StreamerCard 
+              streamer={evaluation} 
+              isRecomputing={false} 
+              onRecompute={undefined}
+              relevanceScore={evaluation.relevanceScore} 
+            />
           </Box>
         )}
       </VStack>

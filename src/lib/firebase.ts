@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,6 +11,43 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase only if an app doesn't already exist
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-export const db = getFirestore(app); 
+// Initialize Firebase only if no app exists
+let app;
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApps()[0];
+}
+
+const db = getFirestore(app);
+
+// Initialize collections
+const initializeCollections = async () => {
+  try {
+    // Create analysedStreamers collection if it doesn't exist
+    const analysedStreamersRef = collection(db, 'analysedStreamers');
+    
+    // Create streamerScores collection if it doesn't exist
+    const streamerScoresRef = collection(db, 'streamerScores');
+    
+    // Create a placeholder document in each collection to ensure they exist
+    await setDoc(doc(analysedStreamersRef, '_placeholder'), {
+      _created: new Date(),
+      _isPlaceholder: true
+    });
+    
+    await setDoc(doc(streamerScoresRef, '_placeholder'), {
+      _created: new Date(),
+      _isPlaceholder: true
+    });
+
+    console.log('Firebase collections initialized successfully');
+  } catch (error) {
+    console.error('Error initializing Firebase collections:', error);
+  }
+};
+
+// Run initialization
+initializeCollections();
+
+export { db }; 

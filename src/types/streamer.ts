@@ -31,6 +31,7 @@ export interface Streamer {
   aiSummary: string;
   aiScore: number;
   aiRecommendation: string;
-  followers?: number;
-  socials?: Social[];
+  followers: number;
+  socials: Social[];
+  relevanceScore?: number;
 } 
