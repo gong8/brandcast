@@ -298,24 +298,6 @@ export default function CompanyProfile() {
                         )}
                       </HStack>
                     </Box>
-
-                    <Box>
-                      <Heading size="sm" mb={2}>Raw Data</Heading>
-                      <Divider mb={3} />
-                      <Box 
-                        p={4} 
-                        borderRadius="md" 
-                        bg={colorMode === 'light' ? 'gray.50' : 'gray.700'}
-                      >
-                        <Code 
-                          display="block" 
-                          whiteSpace="pre-wrap"
-                          bg="transparent"
-                        >
-                          {JSON.stringify(profile, null, 2)}
-                        </Code>
-                      </Box>
-                    </Box>
                   </VStack>
                 </Card>
               </TabPanel>

@@ -20,6 +20,7 @@ export interface Streamer {
   aiRecommendation?: string;
   followers?: number;
   socials?: Array<{ link: string; website: string }>;
+  updatedAt?: Date;
 }
 
 interface StreamerCardProps {
@@ -123,6 +124,7 @@ export default function StreamerCard({ streamer, relevanceScore, onRecompute, is
                 <Text fontSize="sm" fontWeight="medium" color={colorMode === 'light' ? 'blue.600' : 'blue.200'}>
                   Brand Fit Analysis
                 </Text>
+                {/* Temporarily disabled recompute button
                 {onRecompute && (
                   <Button
                     size="sm"
@@ -135,6 +137,7 @@ export default function StreamerCard({ streamer, relevanceScore, onRecompute, is
                     Recompute
                   </Button>
                 )}
+                */}
               </Flex>
               <Text fontSize="sm">
                 {streamer.aiRecommendation}
