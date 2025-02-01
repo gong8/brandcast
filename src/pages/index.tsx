@@ -90,15 +90,6 @@ export default function Home() {
         console.log(`Committed final batch with ${batchCount} updates`);
       }
 
-      if (updateCount > 0) {
-        toast({
-          title: 'Database Update',
-          description: `Successfully updated ${updateCount} streamers`,
-          status: 'success',
-          duration: 5000,
-          isClosable: true,
-        });
-      }
     } catch (error) {
       console.error('Error updating missing calculations:', error);
       toast({

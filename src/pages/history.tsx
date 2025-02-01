@@ -15,8 +15,8 @@ export default function History() {
     async function fetchHistory() {
       try {
         const q = query(
-          collection(db, 'analyzedStreamers'),
-          orderBy('analyzedAt', 'desc')
+          collection(db, 'analysedStreamers'),
+          orderBy('analysedAt', 'desc')
         );
         
         const querySnapshot = await getDocs(q);

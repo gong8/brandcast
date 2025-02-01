@@ -69,31 +69,33 @@ export default function StreamerCard({ streamer, relevanceScore, onRecompute, is
       <CardBody>
         <VStack align="stretch" spacing={4}>
           {/* Streamer Image */}
-          <Box position="relative" height="200px" overflow="hidden" borderRadius="md">
-            <Image
-              src={streamer.image || 'https://place-hold.it/800x400'}
-              alt={streamer.name}
-              objectFit="cover"
-              width="100%"
-              height="100%"
-            />
-            <Flex
-              position="absolute"
-              bottom={0}
-              left={0}
-              right={0}
-              p={2}
-              bg={colorMode === 'light' ? 'blackAlpha.600' : 'blackAlpha.800'}
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <Text color="white" fontWeight="bold" fontSize="lg">
-                {streamer.name}
-              </Text>
-              <Badge colorScheme={getScoreColor(calculateAverageScore() === 'N/A' ? undefined : parseFloat(calculateAverageScore()))}>
-                {calculateAverageScore()}
-              </Badge>
-            </Flex>
+          <Box position="relative" width="100%" paddingBottom="100%" overflow="hidden" borderRadius="md">
+            <Box position="absolute" top="0" left="0" width="100%" height="100%">
+              <Image
+                src={streamer.image || 'https://place-hold.it/800x800'}
+                alt={streamer.name}
+                objectFit="cover"
+                width="100%"
+                height="100%"
+              />
+              <Flex
+                position="absolute"
+                bottom={0}
+                left={0}
+                right={0}
+                p={2}
+                bg={colorMode === 'light' ? 'blackAlpha.600' : 'blackAlpha.800'}
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <Text color="white" fontWeight="bold" fontSize="lg">
+                  {streamer.name}
+                </Text>
+                <Badge colorScheme={getScoreColor(calculateAverageScore() === 'N/A' ? undefined : parseFloat(calculateAverageScore()))}>
+                  {calculateAverageScore()}
+                </Badge>
+              </Flex>
+            </Box>
           </Box>
 
           {/* Brand Fit Score */}

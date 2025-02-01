@@ -83,7 +83,6 @@ export const useStreamers = () => {
 
       // Commit updates
       await batch.commit();
-      console.log('Updated streamers:', updatedStreamers);
 
       // Set sorted streamers
       const sortedStreamers = sortStreamers(updatedStreamers, sortType);
