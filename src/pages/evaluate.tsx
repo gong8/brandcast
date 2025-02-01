@@ -241,13 +241,6 @@ export default function Evaluate() {
       
       setEvaluation(evaluationWithScores);
       
-      toast({
-        title: 'Success',
-        description: 'Streamer analysed and all scores calculated successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
     } catch (error) {
       console.error('Evaluation error:', error);
       toast({

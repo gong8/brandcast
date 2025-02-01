@@ -41,7 +41,6 @@ const initializeCollections = async () => {
       _isPlaceholder: true
     });
 
-    console.log('Firebase collections initialized successfully');
   } catch (error) {
     console.error('Error initializing Firebase collections:', error);
   }

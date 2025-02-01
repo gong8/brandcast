@@ -139,13 +139,6 @@ export const useStreamers = () => {
         return sortStreamers(updated, sortType);
       });
 
-      toast({
-        title: 'Success',
-        description: 'Brand fit score and analysis have been recalculated',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
     } catch (error) {
       console.error('Error recomputing scores:', error);
       toast({
