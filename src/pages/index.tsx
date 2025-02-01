@@ -171,34 +171,110 @@ const calculateAIScore = (streamer: Streamer): number => {
   return Math.min(Math.round(score * 10) / 10, 10);
 };
 
-const calculateAISummaryAndRecommendation = (streamer: Streamer): { aiSummary: string; aiRecommendation: string } => {
+const calculateAISummaryAndRecommendation = (streamer: Streamer, company: CompanyProfile | null): { aiSummary: string; aiRecommendation: string } => {
   // Format numbers for readability
   const followersM = (streamer.followers || 0) / 1000000;
-  const viewsK = (streamer.views || 0) / 1000;
   
   // Generate AI Summary
-  const aiSummary = `${streamer.name} is a content creator with ${followersM.toFixed(1)}M followers and ${viewsK.toFixed(1)}K views.`;
+  const aiSummary = `${streamer.name} is a ${streamer.categories?.join(', ') || 'content'} creator with ${followersM.toFixed(1)}M followers.`;
   
-  // Generate AI Recommendation
-  let aiRecommendation = `${streamer.categories?.length ? streamer.categories.join(', ') + ' content creator' : 'Content creator'} `;
+  // Generate AI Recommendation based on company profile
+  let aiRecommendation = '';
   
-  // Add engagement info
-  if (streamer.followers && streamer.followers > 1000000) {
-    aiRecommendation += 'with a large following. ';
-  } else if (streamer.followers && streamer.followers > 100000) {
-    aiRecommendation += 'with a solid following. ';
+  if (!company) {
+    // Generic recommendation if no company profile exists
+    aiRecommendation = `${streamer.categories?.length ? streamer.categories.join(', ') + ' content creator' : 'Content creator'} `;
+    if (streamer.followers && streamer.followers > 1000000) {
+      aiRecommendation += 'with a large following. ';
+    } else if (streamer.followers && streamer.followers > 100000) {
+      aiRecommendation += 'with a solid following. ';
+    }
+    if (streamer.socials?.length) {
+      aiRecommendation += `Strong social media presence across ${streamer.socials.length} platforms. `;
+    }
+    if (streamer.tags?.length) {
+      aiRecommendation += `Focuses on ${streamer.tags.slice(0, 3).join(', ')}.`;
+    }
   } else {
-    aiRecommendation += 'with growing audience. ';
-  }
+    // Company-specific recommendation
+    const matchingInterests = company.targetAudience.interests.filter(interest =>
+      streamer.tags?.some(tag => tag.toLowerCase().includes(interest.toLowerCase()))
+    );
 
-  // Add social media presence
-  if (streamer.socials?.length) {
-    aiRecommendation += `Strong social media presence across ${streamer.socials.length} platforms. `;
-  }
+    const matchingDemographics = company.targetAudience.demographics.filter(demographic =>
+      streamer.tags?.some(tag => tag.toLowerCase().includes(demographic.toLowerCase()))
+    );
 
-  // Add content focus
-  if (streamer.tags?.length) {
-    aiRecommendation += `Focuses on ${streamer.tags.slice(0, 3).join(', ')}.`;
+    const matchingKeywords = company.adContent.keywords.filter(keyword =>
+      streamer.tags?.some(tag => tag.toLowerCase().includes(keyword.toLowerCase())) ||
+      streamer.description?.toLowerCase().includes(keyword.toLowerCase())
+    );
+
+    const industryMatch = streamer.categories?.some(category =>
+      category.toLowerCase().includes(company.industry.toLowerCase())
+    );
+
+    // Start with company context
+    aiRecommendation = `For ${company.name} (${company.industry}): `;
+
+    // Audience and Demographics Analysis
+    if (matchingInterests.length > 0) {
+      aiRecommendation += `Strong audience alignment in ${matchingInterests.join(', ')}${matchingInterests.length > 1 ? ' areas' : ''}. `;
+    }
+    
+    if (matchingDemographics.length > 0) {
+      aiRecommendation += `Appeals to your target ${matchingDemographics.join(' and ')} demographic${matchingDemographics.length > 1 ? 's' : ''}. `;
+    }
+
+    // Age Range Relevance
+    if (streamer.tags?.some(tag => tag.toLowerCase().includes(company.targetAudience.ageRange.toLowerCase()))) {
+      aiRecommendation += `Content particularly resonates with ${company.targetAudience.ageRange} age group. `;
+    }
+
+    // Industry and Content Alignment
+    if (industryMatch) {
+      aiRecommendation += `Direct ${company.industry} industry alignment offers authentic brand integration opportunities. `;
+    } else if (streamer.categories) {
+      aiRecommendation += `While not directly in ${company.industry}, their ${streamer.categories.join('/')} content could provide fresh exposure. `;
+    }
+
+    // Ad Content and Tone Match
+    if (streamer.description?.toLowerCase().includes(company.adContent.tone.toLowerCase())) {
+      aiRecommendation += `Content style naturally matches your ${company.adContent.tone} brand tone. `;
+    }
+    if (matchingKeywords.length > 0) {
+      aiRecommendation += `Aligns with your key themes: ${matchingKeywords.join(', ')}. `;
+    }
+
+    // Reach and Platform Strategy
+    let platformStrategy = '';
+    if (streamer.followers && streamer.followers > 1000000) {
+      platformStrategy = 'Offers major brand exposure';
+    } else if (streamer.followers && streamer.followers > 100000) {
+      platformStrategy = 'Provides focused brand reach';
+    } else {
+      platformStrategy = 'Offers niche audience targeting';
+    }
+
+    if (streamer.socials?.length) {
+      platformStrategy += ` across ${streamer.socials.length} platforms (${streamer.socials.map(s => s.website).join(', ')}). `;
+    } else {
+      platformStrategy += '. ';
+    }
+    aiRecommendation += platformStrategy;
+
+    // Current Sponsorship Context
+    if (streamer.sponsors && streamer.sponsors.length > 0) {
+      aiRecommendation += `Current brand collaborations with ${streamer.sponsors.map(s => s.name).join(', ')} demonstrate sponsorship experience. `;
+    }
+
+    // Recommendation Summary
+    aiRecommendation += `Overall: ${
+      matchingInterests.length > 0 && industryMatch ? 'Highly recommended partnership opportunity' :
+      matchingInterests.length > 0 ? 'Strong potential for audience alignment' :
+      industryMatch ? 'Good fit for industry-specific campaigns' :
+      'Consider for audience expansion'
+    }.`;
   }
 
   return { aiSummary, aiRecommendation };
@@ -208,6 +284,7 @@ export default function Home() {
   const [streamers, setStreamers] = useState<Array<Streamer & { relevanceScore?: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('relevance');
+  const [recomputingId, setRecomputingId] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
@@ -270,7 +347,7 @@ export default function Home() {
 
         // Calculate AI summary and recommendation if either is missing
         if (!data.aiSummary || !data.aiRecommendation) {
-          const { aiSummary, aiRecommendation } = calculateAISummaryAndRecommendation(data);
+          const { aiSummary, aiRecommendation } = calculateAISummaryAndRecommendation(data, companyData);
           updatedData.aiSummary = aiSummary;
           updatedData.aiRecommendation = aiRecommendation;
           needsUpdate = true;
@@ -496,17 +573,70 @@ export default function Home() {
           return (b.relevanceScore || 0) - (a.relevanceScore || 0);
         case 'followers':
           return (b.followers || 0) - (a.followers || 0);
-        case 'views':
-          return (b.views || 0) - (a.views || 0);
+        case 'aiScore':
+          return (b.aiScore || 0) - (a.aiScore || 0);
         default:
           return 0;
       }
     });
   };
 
-  useEffect(() => {
-    setStreamers(sortStreamers(streamers, sortBy));
-  }, [sortBy]);
+  const handleRecompute = async (streamerId: string) => {
+    try {
+      setRecomputingId(streamerId);
+      const streamer = streamers.find(s => s.id === streamerId);
+      if (!streamer) return;
+
+      // Recalculate scores and recommendations
+      const aiScore = calculateAIScore(streamer);
+      const { aiRecommendation } = calculateAISummaryAndRecommendation(streamer, companyProfile);
+      const relevanceScore = calculateRelevanceScore(streamer, companyProfile);
+
+      // Update in database
+      const batch = writeBatch(db);
+      const streamerRef = doc(db, 'analyzedStreamers', streamerId);
+      batch.set(streamerRef, {
+        ...streamer,
+        aiScore,
+        aiRecommendation,
+      }, { merge: true });
+
+      // Update cached score
+      const scoreRef = doc(db, 'streamerScores', `${streamerId}_main`);
+      batch.set(scoreRef, {
+        streamerId,
+        companyId: 'main',
+        relevanceScore,
+        calculatedAt: Date.now()
+      });
+
+      await batch.commit();
+
+      // Update local state
+      setStreamers(prev => prev.map(s => 
+        s.id === streamerId 
+          ? { ...s, aiScore, aiRecommendation, relevanceScore }
+          : s
+      ));
+
+      toast({
+        title: 'Recomputed Successfully',
+        description: 'Brand fit analysis has been updated',
+        status: 'success',
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Error recomputing scores:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to recompute scores',
+        status: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setRecomputingId(null);
+    }
+  };
 
   if (!user) {
     return (
@@ -597,9 +727,9 @@ export default function Home() {
             maxW="200px"
             mb={4}
           >
-            <option value="relevance">Sort by Relevance</option>
+            <option value="relevance">Sort by Brand Match</option>
+            <option value="aiScore">Sort by AI Score</option>
             <option value="followers">Sort by Followers</option>
-            <option value="views">Sort by Views</option>
           </Select>
         </Box>
 
@@ -619,6 +749,8 @@ export default function Home() {
                 key={streamer.id} 
                 streamer={streamer}
                 relevanceScore={streamer.relevanceScore}
+                onRecompute={handleRecompute}
+                isRecomputing={recomputingId === streamer.id}
               />
             ))}
           </SimpleGrid>

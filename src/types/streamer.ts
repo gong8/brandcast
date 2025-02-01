@@ -6,7 +6,6 @@ export interface Social {
 export interface TwitchStreamer {
   name: string;
   followers: number;
-  views: number;
   description: string;
   socials: Social[];
   panelElements: string[];
@@ -33,6 +32,5 @@ export interface Streamer {
   aiScore: number;
   aiRecommendation: string;
   followers?: number;
-  views?: number;
   socials?: Social[];
 } 

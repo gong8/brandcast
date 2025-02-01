@@ -1,5 +1,6 @@
-import { Box, Image, Text, Tag, Flex, Badge, Progress, VStack, HStack, useColorMode, Card, CardBody, Heading, SimpleGrid, Stat, StatLabel, StatNumber, Wrap, WrapItem, Link } from '@chakra-ui/react';
+import { Box, Image, Text, Tag, Flex, Badge, Progress, VStack, HStack, useColorMode, Card, CardBody, Heading, SimpleGrid, Stat, StatLabel, StatNumber, Wrap, WrapItem, Link, Button } from '@chakra-ui/react';
 import { Social } from '@/types/streamer';
+import { FiRefreshCw } from 'react-icons/fi';
 
 export interface Sponsor {
   name: string;
@@ -23,11 +24,26 @@ export interface Streamer {
 }
 
 interface StreamerCardProps {
-  streamer: Streamer;
+  streamer: {
+    id: string;
+    name: string;
+    image: string;
+    description?: string;
+    tags?: string[];
+    categories?: string[];
+    sponsors?: Array<{ name: string; logo: string }>;
+    aiSummary?: string;
+    aiScore?: number;
+    aiRecommendation?: string;
+    followers?: number;
+    socials?: Array<{ link: string; website: string }>;
+  };
   relevanceScore?: number;
+  onRecompute?: (id: string) => void;
+  isRecomputing: boolean;
 }
 
-export default function StreamerCard({ streamer, relevanceScore }: StreamerCardProps) {
+export default function StreamerCard({ streamer, relevanceScore, onRecompute, isRecomputing }: StreamerCardProps) {
   const { colorMode } = useColorMode();
 
   // Format numbers with commas
@@ -91,16 +107,26 @@ export default function StreamerCard({ streamer, relevanceScore }: StreamerCardP
           )}
 
           {/* Stats */}
-          <SimpleGrid columns={2} spacing={4}>
+          <SimpleGrid columns={1} spacing={4} mb={4}>
             <Stat>
               <StatLabel>Followers</StatLabel>
               <StatNumber>{formatNumber(streamer.followers)}</StatNumber>
             </Stat>
-            <Stat>
-              <StatLabel>Views</StatLabel>
-              <StatNumber>{formatNumber(streamer.views)}</StatNumber>
-            </Stat>
           </SimpleGrid>
+
+          {/* AI Score */}
+          <Box>
+            <Text fontWeight="semibold" mb={1}>AI Score</Text>
+            <Progress
+              value={(streamer.aiScore || 0) * 10}
+              colorScheme={getScoreColor(streamer.aiScore)}
+              borderRadius="full"
+              height="8px"
+            />
+            <Text fontSize="sm" textAlign="right" mt={1}>
+              {formatScore(streamer.aiScore)}/10
+            </Text>
+          </Box>
 
           {/* Tags */}
           {streamer.tags && streamer.tags.length > 0 && (
@@ -151,35 +177,33 @@ export default function StreamerCard({ streamer, relevanceScore }: StreamerCardP
             </Box>
           )}
 
-          {/* AI Summary */}
-          {streamer.aiSummary && (
+          {/* AI Summary and Recommendation */}
+          {streamer.aiRecommendation && (
             <Box
               bg={colorMode === 'light' ? 'blue.50' : 'blue.900'}
-              p={3}
+              p={4}
               borderRadius="md"
             >
-              <Text fontSize="sm" fontWeight="medium" mb={1}>
-                AI Recommendation
-              </Text>
-              <Text fontSize="sm" noOfLines={3}>
-                {streamer.aiSummary}
+              <Flex justify="space-between" align="center" mb={3}>
+                <Text fontSize="sm" fontWeight="medium" color={colorMode === 'light' ? 'blue.600' : 'blue.200'}>
+                  Brand Fit Analysis
+                </Text>
+                <Button
+                  size="sm"
+                  leftIcon={<FiRefreshCw />}
+                  variant="ghost"
+                  colorScheme="blue"
+                  onClick={() => onRecompute?.(streamer.id)}
+                  isLoading={isRecomputing}
+                >
+                  Recompute
+                </Button>
+              </Flex>
+              <Text fontSize="sm">
+                {streamer.aiRecommendation}
               </Text>
             </Box>
           )}
-
-          {/* AI Score - Always show and calculate if missing */}
-          <Box>
-            <Text fontWeight="semibold" mb={1}>AI Score</Text>
-            <Progress
-              value={(streamer.aiScore || 0) * 10}
-              colorScheme={getScoreColor(streamer.aiScore)}
-              borderRadius="full"
-              height="8px"
-            />
-            <Text fontSize="sm" textAlign="right" mt={1}>
-              {formatScore(streamer.aiScore)}/10
-            </Text>
-          </Box>
 
           {/* Brand Match Score - Only show if we have company data */}
           {relevanceScore !== undefined && relevanceScore !== null && (
