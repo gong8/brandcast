@@ -87,16 +87,7 @@ export default function CompanyProfile() {
       if (docSnap.exists()) {
         const data = docSnap.data() as CompanyProfile;
         setProfile(data);
-        
-        // Only show the toast on first successful load
-        if (!hasLoadedOnce.current) {
-          toast({
-            title: 'Profile loaded',
-            status: 'success',
-            duration: 3000,
-          });
-          hasLoadedOnce.current = true;
-        }
+        hasLoadedOnce.current = true;
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -142,12 +133,6 @@ export default function CompanyProfile() {
       
       await batch.commit();
 
-      toast({
-        title: 'Profile saved',
-        description: 'Company profile has been updated and scores will be recalculated',
-        status: 'success',
-        duration: 3000,
-      });
     } catch (error) {
       console.error('Error saving profile:', error);
       toast({
