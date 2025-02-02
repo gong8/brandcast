@@ -6,7 +6,6 @@ import { Streamer } from '@/types/streamer';
 import { collection, query, orderBy, getDocs, doc, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { CompanyProfile } from '@/types/company';
-import { calculateRelevanceScore, calculateAIScore } from '@/utils/scoring';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/context/AuthContext';
 
