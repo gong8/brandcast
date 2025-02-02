@@ -32,7 +32,6 @@ export default async function handler(
 interface Streamer {
   id: string;
   name: string;
-  image: string;
   description: string;
   tags: string[];
   categories: string[];
@@ -61,7 +60,7 @@ Focus on brand collaborations and audience engagement. Extract categories and ta
     console.log('Claude API Response:', claudeResponse.content[0].text);
     const analysis: Streamer = JSON.parse(claudeResponse.content[0].text);
 
-    return res.status(200).json(analysis);
+    return res.status(200).json({ ... analysis, image: twitchData.image });
   } catch (error) {
     console.error('Claude API error:', error);
     return res.status(500).json({ message: 'Failed to analyze streamer data' });

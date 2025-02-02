@@ -5,6 +5,7 @@ export interface Social {
 
 export interface TwitchStreamer {
   name: string;
+  image: string;
   followers: number;
   description: string;
   socials: Social[];

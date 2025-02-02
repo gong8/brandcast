@@ -308,6 +308,7 @@ export default function Evaluate() {
           // Process with Claude for fresh analysis
           const processedData = await processWithClaude({
             name: globalStreamerData.name,
+            image: globalStreamerData.image,
             followers: globalStreamerData.followers,
             description: globalStreamerData.description,
             socials: [],
