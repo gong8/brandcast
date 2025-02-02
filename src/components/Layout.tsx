@@ -1,6 +1,6 @@
 import { Box, Flex, VStack, Icon, IconButton, useColorMode, Text, Image, Button } from '@chakra-ui/react';
 import { MoonIcon, SunIcon } from '@chakra-ui/icons';
-import { FiHome, FiBarChart2, FiFolder, FiGrid, FiHelpCircle, FiBriefcase } from 'react-icons/fi';
+import { FiHome, FiBarChart2, FiFolder, FiGrid, FiHelpCircle, FiBriefcase, FiSearch } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
 import { useCompany } from '@/context/CompanyContext';
 import { useRouter } from 'next/router';
@@ -99,6 +99,12 @@ export default function Layout({ children }: LayoutProps) {
             label="Evaluate" 
             isActive={router.pathname === '/evaluate'} 
             onClick={() => router.push('/evaluate')}
+          />
+          <SidebarItem 
+            icon={FiSearch} 
+            label="Find Streamers" 
+            isActive={router.pathname === '/find-streamers'} 
+            onClick={() => router.push('/find-streamers')}
           />
           <SidebarItem 
             icon={FiFolder} 
@@ -295,5 +301,20 @@ export default function Layout({ children }: LayoutProps) {
 
 // Helper function to get page title based on route
 function getPageTitle(pathname: string): string {
-  return ''; // Return empty string for all pages
+  switch (pathname) {
+    case '/':
+      return 'Dashboard';
+    case '/evaluate':
+      return 'Evaluate Streamer';
+    case '/find-streamers':
+      return 'Find Streamers';
+    case '/history':
+      return 'History';
+    case '/company-profile':
+      return 'Company Profile';
+    case '/support':
+      return 'Support';
+    default:
+      return '';
+  }
 } 

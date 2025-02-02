@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/context/AuthContext';
 import { calculateAIScore } from '@/utils/scoring';
+import { useRouter } from 'next/router';
 
 // Type for global streamer data (Twitch data)
 type GlobalStreamerData = {
@@ -128,7 +129,9 @@ const LoadingAnimation = ({ loadingState }: LoadingAnimationProps) => {
 };
 
 export default function Evaluate() {
-  const [twitchUrl, setTwitchUrl] = useState('');
+  const router = useRouter();
+  const { username } = router.query;
+  const [twitchUrl, setTwitchUrl] = useState(typeof username === "string" ? username : "");
   const [loadingState, setLoadingState] = useState<LoadingState>('idle');
   const [evaluation, setEvaluation] = useState<Streamer | null>(null);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
@@ -180,7 +183,7 @@ export default function Evaluate() {
       try {
         const urlObj = new URL(input);
         const pathSegments = urlObj.pathname.split('/').filter(Boolean);
-        const username = pathSegments[0]; // Get first path segment after domain
+        const username = pathSegments.slice(-1)[0]; // Get first path segment after domain
         return validateTwitchUsername(username);
       } catch {
         // If URL parsing fails, try to extract username directly
@@ -244,6 +247,7 @@ export default function Evaluate() {
       const username = extractTwitchUsername(twitchUrl);
       
       if (!username) {
+        console.log('Invalid Username', twitchUrl, username);
         toast({
           title: 'Invalid Username',
           description: 'Please enter a valid Twitch username (4-25 characters, letters, numbers, and underscores only)',
@@ -450,6 +454,12 @@ export default function Evaluate() {
       setLoadingState('idle');
     }
   };
+
+  useEffect(() => {
+    if (typeof username === 'string') {
+      handleEvaluate();
+    }
+  }, [username]);
 
   return (
     <ProtectedRoute>
