@@ -1,5 +1,3 @@
-export const maxDuration = 60;
-
 import { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(

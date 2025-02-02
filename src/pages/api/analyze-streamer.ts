@@ -1,5 +1,3 @@
-export const maxDuration = 60;
-
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { TwitchStreamer, Streamer } from '@/types/streamer';
 
