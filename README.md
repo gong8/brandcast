@@ -2,7 +2,7 @@
 
 Brandcast helps companies find and evaluate Twitch streamers for brand partnerships using AI analysis. Get instant brand fit scores, partnership recommendations, and detailed analysis powered by Claude AI.
 
-![Brandcast Demo](public/images/logo.png)
+![Brandcast Demo](public/images/logo-dark.png)
 
 ## ✨ Key Features
 
