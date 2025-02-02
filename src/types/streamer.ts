@@ -15,11 +15,6 @@ export interface TwitchStreamer {
   countryCode?: string;
 }
 
-export interface Sponsor {
-  name: string;
-  logo: string;
-}
-
 export interface Streamer {
   id: string;
   name: string;
@@ -27,7 +22,7 @@ export interface Streamer {
   description: string;
   tags: string[];
   categories: string[];
-  sponsors: Sponsor[];
+  sponsors: string[];
   aiSummary: string;
   aiScore: number;
   aiRecommendation: string;

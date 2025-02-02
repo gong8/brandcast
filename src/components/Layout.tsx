@@ -2,6 +2,7 @@ import { Box, Flex, VStack, Icon, IconButton, useColorMode, Text, Image, Button 
 import { MoonIcon, SunIcon } from '@chakra-ui/icons';
 import { FiHome, FiBarChart2, FiFolder, FiGrid, FiHelpCircle, FiBriefcase } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
+import { useCompany } from '@/context/CompanyContext';
 import { useRouter } from 'next/router';
 
 interface LayoutProps {
@@ -51,6 +52,7 @@ const SidebarItem = ({ icon, label, isActive = false, onClick }: SidebarItemProp
 export default function Layout({ children }: LayoutProps) {
   const { colorMode, toggleColorMode } = useColorMode();
   const { user } = useAuth();
+  const { companyProfile } = useCompany();
   const router = useRouter();
 
   const logoSrc = colorMode === 'light' ? '/images/logo.png' : '/images/logo-dark.png';
@@ -72,8 +74,8 @@ export default function Layout({ children }: LayoutProps) {
         overflowY="auto"
       >
         {/* Logo Area */}
-        <Flex align="center" mb={8} px={3} onClick={() => router.push('/')} cursor="pointer">
-          <Box width="160px">
+        <Flex align="center" mt={2} mb={8} px={3} onClick={() => router.push('/')} cursor="pointer">
+          <Box width="120px">
             <Image
               src={logoSrc}
               alt="Brandcast Logo"
@@ -104,13 +106,67 @@ export default function Layout({ children }: LayoutProps) {
             isActive={router.pathname === '/history'} 
             onClick={() => router.push('/history')}
           />
-          <SidebarItem 
-            icon={FiBriefcase} 
-            label="Company Profile" 
-            isActive={router.pathname === '/company-profile'} 
-            onClick={() => router.push('/company-profile')}
-          />
         </VStack>
+
+        {/* Company Profile at Bottom */}
+        <Box
+          position="absolute"
+          bottom={5}
+          left={0}
+          right={0}
+          px={3}
+        >
+          <Flex
+            align="center"
+            p={4}
+            cursor="pointer"
+            onClick={() => router.push('/company-profile')}
+            _hover={{
+              bg: colorMode === 'light' ? 'gray.100' : 'gray.700',
+            }}
+            borderRadius="md"
+            transition="all 0.2s"
+          >
+            <Flex
+              justify="center"
+              align="center"
+              bg={colorMode === 'light' ? 'gray.100' : 'gray.700'}
+              borderRadius="md"
+              p={2}
+              mr={3}
+            >
+              <Icon 
+                as={FiBriefcase} 
+                boxSize={6} 
+                color={
+                  router.pathname === '/company-profile'
+                    ? colorMode === 'light' ? 'blue.500' : 'blue.200'
+                    : colorMode === 'light' ? 'gray.600' : 'gray.400'
+                }
+              />
+            </Flex>
+            <VStack align="flex-start" spacing={0}>
+              <Text 
+                fontSize="sm" 
+                fontWeight="semibold"
+                color={
+                  router.pathname === '/company-profile'
+                    ? colorMode === 'light' ? 'blue.500' : 'blue.200'
+                    : colorMode === 'light' ? 'gray.600' : 'gray.400'
+                }
+              >
+                Company Profile
+              </Text>
+              <Text 
+                fontSize="xs" 
+                color={colorMode === 'light' ? 'gray.500' : 'gray.500'}
+                fontWeight="normal"
+              >
+                {companyProfile?.name || 'Set up your profile'}
+              </Text>
+            </VStack>
+          </Flex>
+        </Box>
       </Box>
 
       {/* Main Content */}
@@ -133,7 +189,6 @@ export default function Layout({ children }: LayoutProps) {
           zIndex={999}
         >
           <Flex
-            maxW="1200px"
             mx="auto"
             h="full"
             align="center"
@@ -153,45 +208,47 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* Right side - Controls */}
             <Flex align="center" gap={4} ml="auto">
-              <IconButton
-                aria-label="Toggle theme"
-                icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
-                onClick={toggleColorMode}
-                variant="ghost"
-              />
-              
               {user && (
-                <Flex
-                  align="center"
-                  p={2}
-                  cursor="pointer"
-                  _hover={{ bg: colorMode === 'light' ? 'gray.100' : 'gray.700' }}
-                  borderRadius="md"
-                  onClick={() => router.push('/profile')}
-                >
-                  <Box
-                    w={8}
-                    h={8}
-                    borderRadius="full"
-                    bg={colorMode === 'light' ? 'gray.300' : 'gray.600'}
-                    mr={3}
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                    color={colorMode === 'light' ? 'gray.700' : 'white'}
+                <>
+                  <IconButton
+                    aria-label="Toggle theme"
+                    icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
+                    onClick={toggleColorMode}
+                    variant="ghost"
+                  />
+                  
+                  <Flex
+                    align="center"
+                    p={2}
+                    cursor="pointer"
+                    _hover={{ bg: colorMode === 'light' ? 'gray.100' : 'gray.700' }}
+                    borderRadius="md"
+                    onClick={() => router.push('/profile')}
                   >
-                    {user.email?.[0].toUpperCase()}
-                  </Box>
-                  <Text 
-                    fontSize="sm" 
-                    fontWeight="medium" 
-                    isTruncated 
-                    maxW="200px"
-                    color={colorMode === 'light' ? 'gray.700' : 'gray.100'}
-                  >
-                    {user.email}
-                  </Text>
-                </Flex>
+                    <Box
+                      w={8}
+                      h={8}
+                      borderRadius="full"
+                      bg={colorMode === 'light' ? 'gray.300' : 'gray.600'}
+                      mr={3}
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      color={colorMode === 'light' ? 'gray.700' : 'white'}
+                    >
+                      {user.email?.[0].toUpperCase()}
+                    </Box>
+                    <Text 
+                      fontSize="sm" 
+                      fontWeight="medium" 
+                      isTruncated 
+                      maxW="200px"
+                      color={colorMode === 'light' ? 'gray.700' : 'gray.100'}
+                    >
+                      {user.email}
+                    </Text>
+                  </Flex>
+                </>
               )}
             </Flex>
           </Flex>

@@ -34,7 +34,7 @@ interface Streamer {
   description: string;
   tags: string[];
   categories: string[];
-  sponsors: { name: string; logo: string; }[]; // If no sponsors found, include { name: "No Current Sponsors", logo: "" }
+  sponsors: string[]; // Changed from { name: string; logo: string; }[]
   aiSummary: string;
   aiScore: number; // 0-10 rating
   aiRecommendation: string;
@@ -46,7 +46,7 @@ interface Streamer {
 Here's the streamer data to analyze:
 ${JSON.stringify(twitchData, null, 2)}
 
-Focus on brand collaborations and audience engagement. Extract categories and tags from their content. If no sponsors are detected, include a single sponsor entry with name "No Current Sponsors" and empty logo string. Return ONLY the JSON object with no additional text or explanation.`
+Focus on brand collaborations and audience engagement. Extract categories and tags from their content. If no sponsors are detected, return an empty array for sponsors. Return ONLY the JSON object with no additional text or explanation.`
         }]
       })
     });

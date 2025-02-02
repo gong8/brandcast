@@ -3,7 +3,6 @@ import { db } from '@/lib/firebase';
 import { Streamer } from '@/types/streamer';
 import { CompanyProfile } from '@/types/company';
 import { calculateAIScore } from '@/utils/scoring';
-import { calculateAISummaryAndRecommendation } from '@/utils/recommendations';
 
 interface CachedScore {
   streamerId: string;
@@ -77,7 +76,7 @@ export const loadStreamers = async (companyProfile: CompanyProfile | null) => {
   const batch = writeBatch(db);
   let needsBatchCommit = false;
   
-  const streamersData = streamersSnapshot.docs.map(docSnapshot => {
+  const streamersData = await Promise.all(streamersSnapshot.docs.map(async docSnapshot => {
     const data = docSnapshot.data() as Streamer;
     const docId = docSnapshot.id;
     let updatedData = { ...data };
@@ -91,7 +90,23 @@ export const loadStreamers = async (companyProfile: CompanyProfile | null) => {
 
     // Calculate AI summary and recommendation if either is missing
     if (!data.aiSummary || !data.aiRecommendation) {
-      const { aiSummary, aiRecommendation } = calculateAISummaryAndRecommendation(data, companyProfile);
+      // Call the analyze-brand-fit endpoint
+      const analysisResponse = await fetch('/api/analyze-brand-fit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          streamer: data,
+          company: companyProfile
+        })
+      });
+
+      if (!analysisResponse.ok) {
+        throw new Error('Failed to analyze brand fit');
+      }
+
+      const { aiSummary, aiRecommendation } = await analysisResponse.json();
       updatedData.aiSummary = aiSummary;
       updatedData.aiRecommendation = aiRecommendation;
       needsUpdate = true;
@@ -115,15 +130,10 @@ export const loadStreamers = async (companyProfile: CompanyProfile | null) => {
       ...updatedData,
       id: docId
     };
-  });
+  }));
 
-  // Commit the batch if we have any operations
   if (needsBatchCommit) {
-    try {
-      await batch.commit();
-    } catch (error) {
-      console.error('Error saving updates:', error);
-    }
+    await batch.commit();
   }
 
   return streamersData;

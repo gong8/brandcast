@@ -25,7 +25,7 @@ export const transformTwitchData = (twitchData: any): Streamer => {
   return {
     id: twitchData.name.toLowerCase(),
     name: twitchData.name,
-    image: twitchData.panelImageURLs[0] || 'https://place-hold.it/800x400',
+    image: twitchData.image,
     description: twitchData.description,
     tags,
     categories,

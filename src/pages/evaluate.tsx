@@ -4,10 +4,51 @@ import Layout from '@/components/Layout';
 import StreamerCard from '@/components/StreamerCard';
 import { TwitchStreamer, Streamer } from '@/types/streamer';
 import { CompanyProfile } from '@/types/company';
-import { collection, doc, getDoc, setDoc, serverTimestamp, writeBatch, getDocs, query } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, serverTimestamp, writeBatch, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { calculateRelevanceScore, calculateAIScore } from '@/utils/scoring';
-import { calculateAISummaryAndRecommendation } from '@/utils/recommendations';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { useAuth } from '@/context/AuthContext';
+import { calculateAIScore } from '@/utils/scoring';
+
+// Type for global streamer data (Twitch data)
+type GlobalStreamerData = {
+  id: string;
+  username: string;
+  name: string;
+  image: string;
+  followers: number;
+  views: number;
+  description: string;
+  language: string;
+  createdAt: string;
+  lastStreamedAt: string;
+  averageViewers: number;
+  peakViewers: number;
+  streamTitle: string;
+  game_name: string;
+  tags: string[];
+  sponsors: string[];
+  panelElements: string[];
+  panelImageURLs: string[];
+  panelLinkUrls: string[];
+};
+
+// Function to map global data to Streamer type
+const mapToStreamer = (globalData: GlobalStreamerData): Streamer => ({
+  id: globalData.id,
+  name: globalData.name,
+  image: globalData.image,
+  description: globalData.description,
+  tags: globalData.tags,
+  categories: [globalData.game_name],
+  sponsors: globalData.sponsors || [],
+  aiSummary: '',
+  aiScore: 0,
+  aiRecommendation: '',
+  followers: globalData.followers,
+  socials: [],
+  relevanceScore: 0
+});
 
 const pulseKeyframe = keyframes`
   0% { transform: scale(0.95); }
@@ -15,62 +56,71 @@ const pulseKeyframe = keyframes`
   100% { transform: scale(0.95); }
 `;
 
-const LoadingAnimation = () => {
+type LoadingState = 'idle' | 'fetching_twitch' | 'analyzing_brand' | 'done';
+
+interface LoadingAnimationProps {
+  loadingState: LoadingState;
+}
+
+const LoadingAnimation = ({ loadingState }: LoadingAnimationProps) => {
   const { colorMode } = useColorMode();
+  const pulseAnimation = `${pulseKeyframe} 2s ease-in-out infinite`;
+
+  const getLoadingText = () => {
+    switch (loadingState) {
+      case 'fetching_twitch':
+        return {
+          title: 'Retrieving Twitch Data',
+          description: 'Fetching streamer information from Twitch...'
+        };
+      case 'analyzing_brand':
+        return {
+          title: 'Analyzing Brand Fit',
+          description: 'Evaluating content, engagement, and brand potential...'
+        };
+      default:
+        return {
+          title: 'Evaluating Streamer',
+          description: 'Processing data...'
+        };
+    }
+  };
+
+  const loadingText = getLoadingText();
+
   return (
     <VStack spacing={8} align="center" py={12}>
       <Box
-        position="relative"
-        width="200px"
-        height="200px"
+        animation={pulseAnimation}
+        bg={colorMode === 'light' ? 'blue.500' : 'blue.200'}
+        w="100px"
+        h="100px"
+        borderRadius="full"
         display="flex"
         alignItems="center"
         justifyContent="center"
       >
-        <Box
-          position="absolute"
-          width="full"
-          height="full"
-          borderRadius="full"
-          bg={colorMode === 'light' ? 'blue.100' : 'blue.900'}
-          animation={`${pulseKeyframe} 2s ease-in-out infinite`}
-        />
-        <Box
-          position="absolute"
-          width="150px"
-          height="150px"
-          borderRadius="full"
-          bg={colorMode === 'light' ? 'blue.200' : 'blue.800'}
-          animation={`${pulseKeyframe} 2s ease-in-out infinite 0.2s`}
-        />
-        <Box
-          position="absolute"
-          width="100px"
-          height="100px"
-          borderRadius="full"
-          bg={colorMode === 'light' ? 'blue.300' : 'blue.700'}
-          animation={`${pulseKeyframe} 2s ease-in-out infinite 0.4s`}
-        />
         <Spinner
           thickness="4px"
-          speed="0.8s"
-          color={colorMode === 'light' ? 'blue.500' : 'blue.200'}
+          speed="0.65s"
+          color={colorMode === 'light' ? 'white' : 'blue.500'}
           size="xl"
         />
       </Box>
+
       <VStack spacing={2}>
         <Text
           fontSize="xl"
           fontWeight="semibold"
           color={colorMode === 'light' ? 'gray.700' : 'gray.100'}
         >
-          Evaluating Streamer
+          {loadingText.title}
         </Text>
         <Text
           color={colorMode === 'light' ? 'gray.600' : 'gray.400'}
           textAlign="center"
         >
-          Analyzing content, engagement, and brand potential...
+          {loadingText.description}
         </Text>
       </VStack>
     </VStack>
@@ -79,27 +129,47 @@ const LoadingAnimation = () => {
 
 export default function Evaluate() {
   const [twitchUrl, setTwitchUrl] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loadingState, setLoadingState] = useState<LoadingState>('idle');
   const [evaluation, setEvaluation] = useState<Streamer | null>(null);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
   const toast = useToast();
   const { colorMode } = useColorMode();
+  const { user } = useAuth();
 
   useEffect(() => {
     async function fetchCompanyProfile() {
+      if (!user) return;
+      
       try {
-        const companyDoc = await getDoc(doc(db, 'companyProfile', 'main'));
+        const companyDoc = await getDoc(doc(db, `users/${user.uid}/companyProfile/main`));
         if (companyDoc.exists()) {
           const profile = companyDoc.data() as CompanyProfile;
           setCompanyProfile(profile);
+          // Remove automatic recalculation on profile load
         }
       } catch (error) {
         console.error('Error fetching company profile:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load company profile',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
       }
     }
 
     fetchCompanyProfile();
-  }, []);
+  }, [user]);
+
+  const formatTwitchUrl = (input: string): string => {
+    // If it's already a URL, return as is
+    if (input.includes('twitch.tv/')) {
+      return input;
+    }
+    // If it's just a username, convert to URL
+    return `https://twitch.tv/${input}`;
+  };
 
   const extractTwitchUsername = (input: string): string | null => {
     // Remove whitespace
@@ -109,20 +179,32 @@ export default function Evaluate() {
     if (input.includes('twitch.tv/')) {
       try {
         const urlObj = new URL(input);
-        return urlObj.pathname.split('/')[1];
+        const pathSegments = urlObj.pathname.split('/').filter(Boolean);
+        const username = pathSegments[0]; // Get first path segment after domain
+        return validateTwitchUsername(username);
       } catch {
         // If URL parsing fails, try to extract username directly
-        const match = input.match(/twitch\.tv\/([^\/\s]+)/);
+        const match = input.match(/twitch\.tv\/([a-zA-Z0-9_]{4,25})/);
         return match ? match[1] : null;
       }
     }
 
-    // If it's just a username (no URL), return as is if valid
-    if (/^[a-zA-Z0-9_]{4,25}$/.test(input)) {
-      return input;
+    // If it's just a username, validate and return
+    return validateTwitchUsername(input);
+  };
+
+  const validateTwitchUsername = (username: string): string | null => {
+    // Check length (4-25 characters)
+    if (username.length < 4 || username.length > 25) {
+      return null;
     }
 
-    return null;
+    // Check characters (only letters, numbers, underscore)
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return null;
+    }
+
+    return username.toLowerCase(); // Twitch usernames are case-insensitive
   };
 
   const processWithClaude = async (twitchData: TwitchStreamer): Promise<Streamer> => {
@@ -146,101 +228,216 @@ export default function Evaluate() {
     }
   };
 
-  const checkCache = async (username: string): Promise<Streamer | null> => {
-    try {
-      const docRef = doc(db, 'analysedStreamers', username.toLowerCase());
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        return docSnap.data() as Streamer;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Cache check error:', error);
-      return null;
-    }
-  };
-
   const handleEvaluate = async () => {
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'Please sign in to evaluate streamers',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
     try {
-      setLoading(true);
       const username = extractTwitchUsername(twitchUrl);
       
       if (!username) {
         toast({
-          title: 'Invalid URL',
-          description: 'Please enter a valid Twitch URL (e.g., https://twitch.tv/username)',
+          title: 'Invalid Username',
+          description: 'Please enter a valid Twitch username (4-25 characters, letters, numbers, and underscores only)',
           status: 'error',
           duration: 5000,
           isClosable: true,
         });
+        setLoadingState('idle');
         return;
       }
 
-      // Check cache first
-      const cachedData = await checkCache(username);
-      if (cachedData) {
-        const relevanceScore = calculateRelevanceScore(cachedData, companyProfile);
-        setEvaluation({ ...cachedData, relevanceScore });
-        toast({
-          title: 'Cached Result',
-          description: 'Showing previously analysed data',
-          status: 'info',
-          duration: 3000,
-          isClosable: true,
+      setLoadingState('fetching_twitch');
+      
+      // Update the input to show the clean username format
+      setTwitchUrl(`https://twitch.tv/${username}`);
+
+      // Step 1: Check user's analysis cache
+      const userAnalysisRef = doc(db, `users/${user.uid}/streamerAnalysis`, username.toLowerCase());
+      const userAnalysisDoc = await getDoc(userAnalysisRef);
+      
+      let streamerData: Streamer | null = null;
+      let globalStreamerData: GlobalStreamerData | null = null;
+
+      if (userAnalysisDoc.exists()) {
+        // User has analyzed this streamer before
+        const userAnalysis = userAnalysisDoc.data();
+        
+        // Get global data
+        const globalStreamerRef = doc(db, 'streamers', username.toLowerCase());
+        const globalStreamerDoc = await getDoc(globalStreamerRef);
+        
+        if (globalStreamerDoc.exists()) {
+          globalStreamerData = globalStreamerDoc.data() as GlobalStreamerData;
+          const baseStreamer = mapToStreamer(globalStreamerData);
+          
+          // Combine with user's analysis
+          streamerData = {
+            ...baseStreamer,
+            aiScore: userAnalysis.aiScore,
+            relevanceScore: userAnalysis.relevanceScore || 0,
+            aiSummary: userAnalysis.aiSummary || '',
+            aiRecommendation: userAnalysis.aiRecommendation || ''
+          };
+        }
+      }
+
+      if (!streamerData) {
+        // Step 2: Check global Twitch database
+        const globalStreamerRef = doc(db, 'streamers', username.toLowerCase());
+        const globalStreamerDoc = await getDoc(globalStreamerRef);
+        
+        if (globalStreamerDoc.exists()) {
+          // Use cached Twitch data but generate fresh analysis
+          globalStreamerData = globalStreamerDoc.data() as GlobalStreamerData;
+          const baseStreamer = mapToStreamer(globalStreamerData);
+          
+          setLoadingState('analyzing_brand');
+          // Process with Claude for fresh analysis
+          const processedData = await processWithClaude({
+            name: globalStreamerData.name,
+            followers: globalStreamerData.followers,
+            description: globalStreamerData.description,
+            socials: [],
+            panelElements: globalStreamerData.panelElements || [],
+            panelImageURLs: globalStreamerData.panelImageURLs || [],
+            panelLinkUrls: globalStreamerData.panelLinkUrls || []
+          });
+
+          streamerData = {
+            ...baseStreamer,
+            ...processedData,
+            id: username.toLowerCase()
+          };
+        } else {
+          // Step 3: Fetch from Twitch API and process with Claude
+          const twitchResponse = await fetch(`/api/fetch-twitch-data?username=${username}`);
+          if (!twitchResponse.ok) {
+            throw new Error('Failed to fetch Twitch data');
+          }
+          
+          const twitchData: TwitchStreamer = await twitchResponse.json();
+          
+          setLoadingState('analyzing_brand');
+          streamerData = await processWithClaude(twitchData);
+          
+          // Cache the Twitch data globally
+          const globalData: GlobalStreamerData = {
+            id: username.toLowerCase(),
+            username: username.toLowerCase(),
+            name: streamerData.name,
+            image: streamerData.image,
+            followers: streamerData.followers,
+            views: 0,
+            description: streamerData.description,
+            language: 'en',
+            createdAt: new Date().toISOString(),
+            lastStreamedAt: new Date().toISOString(),
+            averageViewers: 0,
+            peakViewers: 0,
+            streamTitle: '',
+            game_name: streamerData.categories[0] || '',
+            tags: streamerData.tags,
+            sponsors: streamerData.sponsors || [],
+            panelElements: twitchData.panelElements || [],
+            panelImageURLs: twitchData.panelImageURLs || [],
+            panelLinkUrls: twitchData.panelLinkUrls || []
+          };
+
+          await setDoc(doc(db, 'streamers', username.toLowerCase()), globalData);
+        }
+      }
+
+      if (streamerData) {
+        setLoadingState('analyzing_brand');
+        let evaluationWithScores = { ...streamerData };
+
+        // Calculate brand-specific scores
+        if (companyProfile) {
+          // Get brand fit analysis and score from Claude
+          const analysisResponse = await fetch('/api/analyze-brand-fit', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              streamer: streamerData,
+              company: companyProfile
+            })
+          });
+
+          if (!analysisResponse.ok) {
+            throw new Error('Failed to analyze brand fit');
+          }
+
+          const { aiSummary, aiRecommendation, relevanceScore } = await analysisResponse.json();
+          
+          evaluationWithScores = {
+            ...evaluationWithScores,
+            relevanceScore,
+            aiSummary,
+            aiRecommendation
+          };
+        }
+
+        // Calculate non-brand-specific score
+        const aiScore = calculateAIScore(streamerData);
+        evaluationWithScores.aiScore = aiScore;
+
+        // Save user-specific analysis and history
+        const batch = writeBatch(db);
+        
+        // Save analysis
+        const analysisRef = doc(db, `users/${user.uid}/streamerAnalysis`, username.toLowerCase());
+        batch.set(analysisRef, {
+          aiScore,
+          relevanceScore: evaluationWithScores.relevanceScore ?? null,
+          aiSummary: evaluationWithScores.aiSummary || null,
+          aiRecommendation: evaluationWithScores.aiRecommendation || null,
+          updatedAt: serverTimestamp()
         });
-        return;
+
+        // Add to user's history
+        const historyRef = doc(db, `users/${user.uid}/history`, username.toLowerCase());
+        batch.set(historyRef, {
+          streamerId: username.toLowerCase(),
+          name: streamerData.name,
+          image: streamerData.image,
+          followers: streamerData.followers,
+          aiScore,
+          relevanceScore: evaluationWithScores.relevanceScore ?? null,
+          lastAnalyzed: serverTimestamp(),
+          categories: streamerData.categories,
+          tags: streamerData.tags,
+          sponsors: streamerData.sponsors || []
+        });
+
+        await batch.commit();
+
+        // Get the latest global data to ensure we have all fields
+        const globalStreamerRef = doc(db, 'streamers', username.toLowerCase());
+        const globalStreamerDoc = await getDoc(globalStreamerRef);
+        
+        if (globalStreamerDoc.exists()) {
+          const globalData = globalStreamerDoc.data() as GlobalStreamerData;
+          evaluationWithScores = {
+            ...mapToStreamer(globalData), // This ensures we have all fields including sponsors
+            ...evaluationWithScores // This overwrites with our new scores
+          };
+        }
+
+        setEvaluation(evaluationWithScores);
+        setLoadingState('done');
       }
 
-      // Fetch new data if not in cache
-      const twitchResponse = await fetch(`/api/fetch-twitch-data?username=${username}`);
-      if (!twitchResponse.ok) {
-        throw new Error('Failed to fetch Twitch data');
-      }
-      
-      const twitchData: TwitchStreamer = await twitchResponse.json();
-      const processedData = await processWithClaude(twitchData);
-      
-      // Calculate all scores and analyses
-      const relevanceScore = calculateRelevanceScore(processedData, companyProfile);
-      const aiScore = calculateAIScore(processedData);
-      const { aiSummary, aiRecommendation } = calculateAISummaryAndRecommendation(processedData, companyProfile);
-
-      const evaluationWithScores = {
-        ...processedData,
-        relevanceScore,
-        aiScore,
-        aiSummary,
-        aiRecommendation
-      };
-      
-      // Save to Firestore with a batch write
-      const batch = writeBatch(db);
-      
-      // Save complete streamer data
-      const streamerRef = doc(db, 'analysedStreamers', username.toLowerCase());
-      batch.set(streamerRef, {
-        ...evaluationWithScores,
-        analysedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        id: username.toLowerCase()
-      });
-
-      // Save brand fit score
-      const scoreRef = doc(db, 'streamerScores', `${username.toLowerCase()}_main`);
-      batch.set(scoreRef, {
-        streamerId: username.toLowerCase(),
-        companyId: 'main',
-        relevanceScore,
-        calculatedAt: Date.now()
-      });
-
-      // Commit both operations
-      await batch.commit();
-      
-      setEvaluation(evaluationWithScores);
-      
     } catch (error) {
       console.error('Evaluation error:', error);
       toast({
@@ -250,76 +447,77 @@ export default function Evaluate() {
         duration: 5000,
         isClosable: true,
       });
-    } finally {
-      setLoading(false);
+      setLoadingState('idle');
     }
   };
 
   return (
-    <Layout>
-      <VStack spacing={8} align="stretch" maxW="800px" mx="auto">
-        <Box>
-          <Heading size="lg" mb={2}>Evaluate Streamer</Heading>
-          <Text color={colorMode === 'light' ? 'gray.600' : 'gray.300'}>
-            Enter a Twitch URL to analyse the streamer's potential
-          </Text>
-        </Box>
-
-        <Card p={6} bg={colorMode === 'light' ? 'white' : 'gray.800'}>
-          <VStack spacing={4}>
-            <Input
-              placeholder="https://twitch.tv/username or username"
-              value={twitchUrl}
-              onChange={(e) => setTwitchUrl(e.target.value)}
-              size="lg"
-              bg={colorMode === 'light' ? 'white' : 'gray.700'}
-              borderColor={colorMode === 'light' ? 'gray.200' : 'gray.600'}
-              _hover={{
-                borderColor: colorMode === 'light' ? 'blue.500' : 'blue.300'
-              }}
-              _focus={{
-                borderColor: colorMode === 'light' ? 'blue.500' : 'blue.300',
-                boxShadow: `0 0 0 1px ${colorMode === 'light' ? 'blue.500' : 'blue.300'}`
-              }}
-            />
-            <Button
-              colorScheme={colorMode === 'light' ? 'blue' : 'gray'}
-              onClick={handleEvaluate}
-              isLoading={loading}
-              loadingText="Evaluating..."
-              width="full"
-              size="lg"
-              bg={colorMode === 'light' ? 'blue.500' : 'gray.700'}
-              color={colorMode === 'light' ? 'white' : 'gray.100'}
-              _hover={{
-                transform: 'translateY(-2px)',
-                boxShadow: 'lg',
-                bg: colorMode === 'light' ? 'blue.600' : 'gray.600'
-              }}
-              _active={{
-                bg: colorMode === 'light' ? 'blue.700' : 'gray.500'
-              }}
-              transition="all 0.2s"
-            >
-              Evaluate
-            </Button>
-          </VStack>
-        </Card>
-
-        {loading ? (
-          <LoadingAnimation />
-        ) : evaluation && (
+    <ProtectedRoute>
+      <Layout>
+        <VStack spacing={8} align="stretch" maxW="800px" mx="auto">
           <Box>
-            <Heading size="md" mb={4}>Evaluation Result</Heading>
-            <StreamerCard 
-              streamer={evaluation} 
-              isRecomputing={false} 
-              onRecompute={undefined}
-              relevanceScore={evaluation.relevanceScore} 
-            />
+            <Heading size="lg" mb={2}>Evaluate Streamer</Heading>
+            <Text color={colorMode === 'light' ? 'gray.600' : 'gray.300'}>
+              Enter a Twitch URL or username to analyse their potential
+            </Text>
           </Box>
-        )}
-      </VStack>
-    </Layout>
+
+          <Card p={6} bg={colorMode === 'light' ? 'white' : 'gray.800'}>
+            <VStack spacing={4}>
+              <Input
+                placeholder="https://twitch.tv/username or just username"
+                value={twitchUrl}
+                onChange={(e) => setTwitchUrl(e.target.value)}
+                size="lg"
+                bg={colorMode === 'light' ? 'white' : 'gray.700'}
+                borderColor={colorMode === 'light' ? 'gray.200' : 'gray.600'}
+                _hover={{
+                  borderColor: colorMode === 'light' ? 'blue.500' : 'blue.300'
+                }}
+                _focus={{
+                  borderColor: colorMode === 'light' ? 'blue.500' : 'blue.300',
+                  boxShadow: `0 0 0 1px ${colorMode === 'light' ? 'blue.500' : 'blue.300'}`
+                }}
+              />
+              <Button
+                colorScheme={colorMode === 'light' ? 'blue' : 'gray'}
+                onClick={handleEvaluate}
+                isLoading={loadingState !== 'idle' && loadingState !== 'done'}
+                loadingText="Evaluating..."
+                width="full"
+                size="lg"
+                bg={colorMode === 'light' ? 'blue.500' : 'gray.700'}
+                color={colorMode === 'light' ? 'white' : 'gray.100'}
+                _hover={{
+                  transform: 'translateY(-2px)',
+                  boxShadow: 'lg',
+                  bg: colorMode === 'light' ? 'blue.600' : 'gray.600'
+                }}
+                _active={{
+                  bg: colorMode === 'light' ? 'blue.700' : 'gray.500'
+                }}
+                transition="all 0.2s"
+              >
+                Evaluate
+              </Button>
+            </VStack>
+          </Card>
+
+          {loadingState !== 'idle' && loadingState !== 'done' ? (
+            <LoadingAnimation loadingState={loadingState} />
+          ) : evaluation && (
+            <Box>
+              <Heading size="md" mb={4}>Evaluation Result</Heading>
+              <StreamerCard 
+                streamer={evaluation} 
+                isRecomputing={false} 
+                onRecompute={undefined}
+                relevanceScore={evaluation.relevanceScore} 
+              />
+            </Box>
+          )}
+        </VStack>
+      </Layout>
+    </ProtectedRoute>
   );
 } 

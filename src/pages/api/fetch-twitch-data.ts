@@ -16,7 +16,7 @@ export default async function handler(
   }
 
   try {
-    const response = await fetch(`https://4dc3-146-179-87-5.ngrok-free.app/streamer/${username}`);
+    const response = await fetch(`https://c2be-146-179-87-5.ngrok-free.app/streamer/${username}`);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch streamer data: ${response.statusText}`);

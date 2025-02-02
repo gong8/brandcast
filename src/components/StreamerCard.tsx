@@ -1,43 +1,9 @@
 import { Box, Image, Text, Tag, Flex, Badge, Progress, VStack, HStack, useColorMode, Card, CardBody, Heading, SimpleGrid, Stat, StatLabel, StatNumber, Wrap, WrapItem, Link, Button } from '@chakra-ui/react';
-import { Social } from '@/types/streamer';
+import { Social, Streamer } from '@/types/streamer';
 import { FiRefreshCw } from 'react-icons/fi';
 
-export interface Sponsor {
-  name: string;
-  logo: string;
-}
-
-export interface Streamer {
-  id: string;
-  name: string;
-  image: string;
-  description: string;
-  tags: string[];
-  categories: string[];
-  sponsors?: Array<{ name: string; logo: string }>;
-  aiSummary?: string;
-  aiScore?: number;
-  aiRecommendation?: string;
-  followers?: number;
-  socials?: Array<{ link: string; website: string }>;
-  updatedAt?: Date;
-}
-
 interface StreamerCardProps {
-  streamer: {
-    id: string;
-    name: string;
-    image: string;
-    description?: string;
-    tags?: string[];
-    categories?: string[];
-    sponsors?: Array<{ name: string; logo: string }>;
-    aiSummary?: string;
-    aiScore?: number;
-    aiRecommendation?: string;
-    followers?: number;
-    socials?: Array<{ link: string; website: string }>;
-  };
+  streamer: Streamer;
   relevanceScore?: number;
   onRecompute?: (id: string) => void;
   isRecomputing: boolean;
@@ -60,10 +26,16 @@ export default function StreamerCard({ streamer, relevanceScore, onRecompute, is
 
   // Calculate average score
   const calculateAverageScore = () => {
-    if (!streamer.aiScore && !relevanceScore) return 'N/A';
-    const avg = ((streamer.aiScore || 0) + (relevanceScore || 0)) / 2;
+    if (!streamer.aiScore) return 'N/A';
+    if (relevanceScore === undefined || relevanceScore === null) {
+      return formatScore(streamer.aiScore);
+    }
+    // aiScore is already out of 10, but relevanceScore is 0-1, so convert relevanceScore to same scale
+    const avg = (streamer.aiScore + (relevanceScore * 10)) / 2;
     return formatScore(avg);
   };
+
+  console.log(streamer);
 
   return (
     <Card bg={colorMode === 'light' ? 'white' : 'gray.800'}>
@@ -84,7 +56,7 @@ export default function StreamerCard({ streamer, relevanceScore, onRecompute, is
                 bottom={0}
                 left={0}
                 right={0}
-                p={2}
+                p={3}
                 bg={colorMode === 'light' ? 'blackAlpha.600' : 'blackAlpha.800'}
                 alignItems="center"
                 justifyContent="space-between"
@@ -92,9 +64,34 @@ export default function StreamerCard({ streamer, relevanceScore, onRecompute, is
                 <Text color="white" fontWeight="bold" fontSize="lg">
                   {streamer.name}
                 </Text>
-                <Badge colorScheme={getScoreColor(calculateAverageScore() === 'N/A' ? undefined : parseFloat(calculateAverageScore()))}>
-                  {calculateAverageScore()}
-                </Badge>
+                <Flex
+                  bg={colorMode === 'light' ? 'whiteAlpha.900' : 'blackAlpha.800'}
+                  px={3}
+                  py={2}
+                  borderRadius="xl"
+                  alignItems="center"
+                  boxShadow="lg"
+                  backdropFilter="blur(8px)"
+                  border="2px solid"
+                  borderColor={getScoreBorderColor(calculateAverageScore() === 'N/A' ? undefined : parseFloat(calculateAverageScore()) / 10)}
+                >
+                  <Text
+                    fontSize="2xl"
+                    fontWeight="bold"
+                    color={getScoreTextColor(calculateAverageScore() === 'N/A' ? undefined : parseFloat(calculateAverageScore()) / 10)}
+                    mr={1}
+                    letterSpacing="tight"
+                  >
+                    {calculateAverageScore()}
+                  </Text>
+                  <Text
+                    fontSize="sm"
+                    color={colorMode === 'light' ? 'gray.600' : 'gray.300'}
+                    fontWeight="semibold"
+                  >
+                    /10
+                  </Text>
+                </Flex>
               </Flex>
             </Box>
           </Box>
@@ -102,19 +99,41 @@ export default function StreamerCard({ streamer, relevanceScore, onRecompute, is
           {/* Brand Fit Score */}
           <Box>
             <Text fontWeight="semibold" mb={1}>Brand Fit Score</Text>
+            {relevanceScore === undefined || relevanceScore === null ? (
+              <Text fontSize="sm" color={colorMode === 'light' ? 'gray.600' : 'gray.400'}>
+                Add company profile details to see brand fit score
+              </Text>
+            ) : (
+              <>
+                <Progress
+                  value={relevanceScore * 100}
+                  colorScheme={getScoreColor(relevanceScore)}
+                  borderRadius="full"
+                  height="8px"
+                />
+                <Text fontSize="sm" textAlign="right" mt={1}>
+                  {formatScore(relevanceScore * 10)}/10
+                </Text>
+              </>
+            )}
+          </Box>
+
+          {/* Reach & Influence Score */}
+          <Box>
+            <Text fontWeight="semibold" mb={1}>Reach & Influence Score</Text>
             <Progress
-              value={(relevanceScore || 0) * 10}
-              colorScheme={getScoreColor(relevanceScore)}
+              value={(streamer.aiScore || 0) * 10}
+              colorScheme={getScoreColor(streamer.aiScore ? streamer.aiScore / 10 : undefined)}
               borderRadius="full"
               height="8px"
             />
             <Text fontSize="sm" textAlign="right" mt={1}>
-              {formatScore(relevanceScore)}/10
+              {formatScore(streamer.aiScore || 0)}/10
             </Text>
           </Box>
 
           {/* Brand Fit Analysis */}
-          {streamer.aiRecommendation && (
+          {streamer.aiRecommendation ? (
             <Box
               bg={colorMode === 'light' ? 'blue.50' : 'blue.900'}
               p={4}
@@ -124,40 +143,36 @@ export default function StreamerCard({ streamer, relevanceScore, onRecompute, is
                 <Text fontSize="sm" fontWeight="medium" color={colorMode === 'light' ? 'blue.600' : 'blue.200'}>
                   Brand Fit Analysis
                 </Text>
-                {/* Temporarily disabled recompute button
                 {onRecompute && (
                   <Button
-                    size="sm"
-                    leftIcon={<FiRefreshCw />}
+                    size="xs"
                     variant="ghost"
                     colorScheme="blue"
+                    leftIcon={<FiRefreshCw />}
                     onClick={() => onRecompute(streamer.id)}
                     isLoading={isRecomputing}
+                    loadingText="Updating..."
+                    title="Get fresh brand fit analysis"
                   >
-                    Recompute
+                    Update
                   </Button>
                 )}
-                */}
               </Flex>
               <Text fontSize="sm">
                 {streamer.aiRecommendation}
               </Text>
             </Box>
-          )}
-
-          {/* Reach & Influence Score */}
-          <Box>
-            <Text fontWeight="semibold" mb={1}>Reach & Influence Score</Text>
-            <Progress
-              value={(streamer.aiScore || 0) * 10}
-              colorScheme={getScoreColor(streamer.aiScore)}
-              borderRadius="full"
-              height="8px"
-            />
-            <Text fontSize="sm" textAlign="right" mt={1}>
-              {formatScore(streamer.aiScore)}/10
-            </Text>
-          </Box>
+          ) : relevanceScore === undefined || relevanceScore === null ? (
+            <Box
+              bg={colorMode === 'light' ? 'gray.50' : 'gray.700'}
+              p={4}
+              borderRadius="md"
+            >
+              <Text fontSize="sm" color={colorMode === 'light' ? 'gray.600' : 'gray.400'}>
+                Add your company profile to get personalised brand fit analysis and recommendations.
+              </Text>
+            </Box>
+          ) : null}
 
           {/* Categories */}
           {streamer.categories && streamer.categories.length > 0 && (
@@ -224,7 +239,7 @@ export default function StreamerCard({ streamer, relevanceScore, onRecompute, is
                 {streamer.sponsors.map((sponsor, index) => (
                   <WrapItem key={index}>
                     <Tag size="md" colorScheme="green" borderRadius="full">
-                      {sponsor.name}
+                      {sponsor}
                     </Tag>
                   </WrapItem>
                 ))}
@@ -258,8 +273,29 @@ export default function StreamerCard({ streamer, relevanceScore, onRecompute, is
 // Helper function to determine score color
 function getScoreColor(score: number | undefined): string {
   if (score === undefined || score === null) return 'gray';
-  if (score >= 8) return 'green';
-  if (score >= 6) return 'blue';
-  if (score >= 4) return 'yellow';
+  const scoreOutOfTen = score * 10;
+  if (scoreOutOfTen >= 8) return 'green';
+  if (scoreOutOfTen >= 6) return 'blue';
+  if (scoreOutOfTen >= 4) return 'orange';
   return 'red';
+}
+
+// Helper function to determine score text color
+function getScoreTextColor(score: number | undefined): string {
+  if (score === undefined || score === null) return 'gray.400';
+  const scoreOutOfTen = score * 10;
+  if (scoreOutOfTen >= 8) return 'green.500';
+  if (scoreOutOfTen >= 6) return 'blue.500';
+  if (scoreOutOfTen >= 4) return 'orange.500';
+  return 'red.500';
+}
+
+// Helper function to determine score border color
+function getScoreBorderColor(score: number | undefined): string {
+  if (score === undefined || score === null) return 'gray.200';
+  const scoreOutOfTen = score * 10;
+  if (scoreOutOfTen >= 8) return 'green.200';
+  if (scoreOutOfTen >= 6) return 'blue.200';
+  if (scoreOutOfTen >= 4) return 'orange.200';
+  return 'red.200';
 } 
