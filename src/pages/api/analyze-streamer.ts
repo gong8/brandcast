@@ -24,7 +24,7 @@ export default async function handler(
       },
       body: JSON.stringify({
         model: 'claude-3-opus-20240229',
-        max_tokens: 500,
+        max_tokens: 999,
         messages: [{
           role: 'user',
           content: `Analyze this Twitch streamer data and provide an evaluation. Return ONLY a JSON object (no other text) matching this TypeScript interface:

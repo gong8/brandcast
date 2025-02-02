@@ -51,7 +51,7 @@ Return ONLY the JSON object with no additional text or explanation. Do not inclu
       },
       body: JSON.stringify({
         model: 'claude-3-opus-20240229',
-        max_tokens: 1000,
+        max_tokens: 999,
         messages: [{
           role: 'user',
           content: prompt
