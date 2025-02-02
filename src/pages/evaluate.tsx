@@ -456,10 +456,10 @@ export default function Evaluate() {
   };
 
   useEffect(() => {
-    if (typeof username === 'string') {
+    if (typeof username === 'string' && companyProfile !== null) {
       handleEvaluate();
     }
-  }, [username]);
+  }, [username, companyProfile]);
 
   return (
     <ProtectedRoute>
